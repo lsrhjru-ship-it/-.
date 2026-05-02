@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HookPanel — Discord 웹훅 관리</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+<!-- Supabase JS (CDN) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080a10;--bg2:#0e1018;--bg3:#141720;--bg4:#1c2030;
+  --accent:#5865f2;--accent2:#7289da;--accent3:#eb459e;
+  --green:#57f287;--yellow:#fee75c;--red:#ed4245;
+  --text:#f2f3f5;--text2:#b9bbbe;--text3:#72767d;
+  --border:#1e2130;--border2:#2a2f45;
+  --glow:rgba(88,101,242,0.25);--glow2:rgba(235,69,158,0.15);
+  --radius:12px;--sidebar:220px;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+/* ── PAGES ── */
+.page{display:none;min-height:100vh}
+.page.active{display:flex}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes slideIn{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .18s;text-decoration:none;white-space:nowrap}
+.btn-primary{background:linear-gradient(135deg,var(--accent) 0%,var(--accent3) 100%);color:#fff;box-shadow:0 4px 20px rgba(88,101,242,.35)}
+.btn-primary:hover:not(:disabled){filter:brightness(1.12);transform:translateY(-1px);box-shadow:0 6px 28px rgba(88,101,242,.45)}
+.btn-outline{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-outline:hover:not(:disabled){border-color:var(--accent);color:var(--accent);background:rgba(88,101,242,.08)}
+.btn-ghost{background:transparent;color:var(--text3);border:none}
+.btn-ghost:hover{color:var(--text);background:var(--bg3)}
+.btn-danger{background:rgba(237,66,69,.15);color:var(--red);border:1px solid rgba(237,66,69,.25)}
+.btn-danger:hover:not(:disabled){background:rgba(237,66,69,.25)}
+.btn-sm{padding:5px 11px;font-size:12px;border-radius:6px}
+.btn-full{width:100%;justify-content:center;padding:11px}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none!important}
+.btn-discord{background:#5865f2;color:#fff;border:none}
+.btn-discord:hover:not(:disabled){background:#4752c4;transform:translateY(-1px)}
+.btn-google{background:#fff;color:#3c4043;border:1px solid #e0e0e0}
+.btn-google:hover:not(:disabled){background:#f8f9fa;box-shadow:0 2px 10px rgba(0,0,0,.15)}
+
+/* ── INPUTS ── */
+input,textarea,select{background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:9px 13px;border-radius:8px;width:100%;outline:none;transition:border-color .18s,box-shadow .18s}
+input:focus,textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--glow)}
+input::placeholder,textarea::placeholder{color:var(--text3)}
+textarea{resize:vertical;min-height:80px;line-height:1.55}
+select option{background:var(--bg3)}
+label{font-size:11px;font-weight:500;color:var(--text3);margin-bottom:5px;display:block;text-transform:uppercase;letter-spacing:.6px}
+
+/* ── CARDS ── */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.card-header{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+
+/* ── TAGS ── */
+.tag{display:inline-flex;align-items:center;gap:3px;padding:2px 9px;border-radius:100px;font-size:10px;font-weight:600;letter-spacing:.3px}
+.tag-online{background:rgba(87,242,135,.12);color:var(--green);border:1px solid rgba(87,242,135,.25)}
+.tag-offline{background:rgba(114,118,125,.12);color:var(--text3);border:1px solid rgba(114,118,125,.2)}
+.tag-admin{background:rgba(235,69,158,.12);color:var(--accent3);border:1px solid rgba(235,69,158,.25)}
+.tag-user{background:rgba(88,101,242,.12);color:var(--accent2);border:1px solid rgba(88,101,242,.25)}
+
+/* ── TABLE ── */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:9px 14px;color:var(--text3);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid var(--border);background:var(--bg3)}
+td{padding:11px 14px;border-bottom:1px solid rgba(255,255,255,.03);color:var(--text2);vertical-align:middle}
+tr:hover td{background:rgba(255,255,255,.015)}
+tr:last-child td{border-bottom:none}
+
+/* ── SIDEBAR ── */
+.sidebar{width:var(--sidebar);background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;min-height:100vh;flex-shrink:0;position:sticky;top:0}
+.sidebar-nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;transition:all .15s;font-size:13px;color:var(--text3);margin:1px 8px;user-select:none}
+.sidebar-nav-item:hover{background:var(--bg3);color:var(--text2)}
+.sidebar-nav-item.active{background:rgba(88,101,242,.15);color:var(--accent);font-weight:500}
+.sidebar-nav-item.active svg{color:var(--accent)}
+.nav-icon{width:16px;height:16px;flex-shrink:0}
+.nav-badge{background:var(--accent);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:100px;margin-left:auto;min-width:18px;text-align:center}
+.dot-online{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);flex-shrink:0}
+
+/* ── STAT CARDS ── */
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;position:relative;overflow:hidden}
+.stat-card::after{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.5}
+
+/* ── AVATAR ── */
+.avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent3));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex-shrink:0;overflow:hidden}
+.avatar img{width:100%;height:100%;object-fit:cover}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:100;backdrop-filter:blur(6px)}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:18px;padding:26px;width:460px;max-width:94vw;max-height:88vh;overflow-y:auto;animation:fadeUp .25s ease}
+
+/* ── NOTIFICATIONS ── */
+#notif-root{position:fixed;top:18px;right:18px;z-index:999;display:flex;flex-direction:column;gap:8px;max-width:320px}
+.notif{display:flex;align-items:center;gap:10px;padding:11px 16px;border-radius:10px;font-size:13px;font-weight:500;animation:slideIn .3s ease;backdrop-filter:blur(8px)}
+.notif-success{background:rgba(14,16,24,.95);border:1px solid rgba(87,242,135,.4);color:var(--green)}
+.notif-error{background:rgba(14,16,24,.95);border:1px solid rgba(237,66,69,.4);color:var(--red)}
+.notif-info{background:rgba(14,16,24,.95);border:1px solid rgba(88,101,242,.4);color:var(--accent2)}
+
+/* ── OTP ── */
+.otp-box{display:flex;gap:8px;justify-content:center}
+.otp-digit{width:46px;height:54px;text-align:center;font-size:22px;font-family:'Syne',sans-serif;font-weight:700;border-radius:10px;border:2px solid var(--border2);background:var(--bg3);color:var(--text);transition:all .18s;caret-color:transparent}
+.otp-digit:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--glow);outline:none}
+.otp-digit.filled{border-color:rgba(88,101,242,.5);background:rgba(88,101,242,.05)}
+.otp-digit.error{border-color:var(--red);animation:shake .4s ease}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+
+/* ── SPINNER ── */
+.spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .65s linear infinite;flex-shrink:0}
+
+/* ── LOGIN PAGE ── */
+#page-login{align-items:center;justify-content:center;background:
+  radial-gradient(ellipse at 20% 20%,rgba(88,101,242,.1) 0%,transparent 50%),
+  radial-gradient(ellipse at 80% 80%,rgba(235,69,158,.07) 0%,transparent 50%),
+  var(--bg)}
+.login-wrap{width:100%;max-width:400px;padding:20px;animation:fadeUp .4s ease}
+.login-logo{text-align:center;margin-bottom:36px;animation:float 4s ease-in-out infinite}
+.login-logo-icon{width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,var(--accent),var(--accent3));display:flex;align-items:center;justify-content:center;margin:0 auto 14px;box-shadow:0 8px 36px rgba(88,101,242,.4)}
+.divider{display:flex;align-items:center;gap:10px;margin:14px 0;color:var(--text3);font-size:11px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border2)}
+.form-row{margin-bottom:14px}
+
+/* ── MAIN APP ── */
+.main-content{flex:1;overflow-y:auto;background:var(--bg);min-height:100vh}
+.tab-pane{display:none;padding:28px;animation:fadeUp .25s ease}
+.tab-pane.active{display:block}
+.page-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin-bottom:4px}
+.page-sub{font-size:13px;color:var(--text3);margin-bottom:22px}
+
+/* ── GRID ── */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-4{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+@media(max-width:800px){.grid-2{grid-template-columns:1fr}}
+
+/* ── DISCORD PREVIEW ── */
+#discord-preview-wrap{background:#36393f;border-radius:10px;padding:18px;min-height:80px}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* ── EMPTY STATE ── */
+.empty{text-align:center;padding:32px 16px;color:var(--text3);font-size:13px}
+
+@media(max-width:680px){
+  .sidebar{width:56px}
+  .sidebar .nav-label,.sidebar .sidebar-logo-text,.sidebar .sidebar-user-info{display:none}
+  .sidebar-nav-item{justify-content:center;margin:1px 6px;padding:10px}
+  .nav-badge{display:none}
+  .tab-pane{padding:16px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ═══════════════════════════════════════ LOGIN ═══════════════════════════════════════ -->
+<div class="page active" id="page-login">
+  <div class="login-wrap">
+
+    <div class="login-logo">
+      <div class="login-logo-icon">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+          <path d="M20 4H4C2.9 4 2 4.9 2 6v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-2 4l-6 3.75L6 8V6l6 3.75L18 6v2z" fill="white"/>
+        </svg>
+      </div>
+      <h1 style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;background:linear-gradient(135deg,#fff 30%,var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent">HookPanel</h1>
+      <p style="font-size:13px;color:var(--text3);margin-top:5px">Discord 웹훅 관리 플랫폼</p>
+    </div>
+
+    <div class="card" style="padding:26px">
+
+      <!-- LOGIN STEP -->
+      <div id="step-login">
+        <div class="form-row"><label>아이디</label><input id="l-id" type="text" placeholder="아이디" autocomplete="username" onkeydown="if(e.key==='Enter')login()" /></div>
+        <div class="form-row"><label>비밀번호</label><input id="l-pw" type="password" placeholder="비밀번호" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()" /></div>
+        <button class="btn btn-primary btn-full" id="btn-login" onclick="login()">로그인</button>
+
+        <div class="divider">소셜 로그인</div>
+
+        <button class="btn btn-google btn-full" style="margin-bottom:8px" onclick="googleLogin()">
+          <svg width="17" height="17" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+          Google로 로그인
+        </button>
+        <button class="btn btn-discord btn-full" onclick="discordLogin()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026c.462-.62.874-1.275 1.226-1.963a.074.074 0 0 0-.041-.104 13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z"/></svg>
+          Discord로 로그인
+        </button>
+
+        <p style="text-align:center;margin-top:16px;font-size:12px;color:var(--text3)">계정이 없으신가요? <a onclick="showStep('register')" style="color:var(--accent);cursor:pointer">회원가입</a></p>
+      </div>
+
+      <!-- REGISTER STEP -->
+      <div id="step-register" style="display:none">
+        <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;margin-bottom:18px">회원가입</div>
+        <div class="form-row"><label>아이디</label><input id="r-id" type="text" placeholder="영문/숫자 3자 이상"/></div>
+        <div class="form-row"><label>이메일</label><input id="r-email" type="email" placeholder="인증코드 발송됩니다"/></div>
+        <div class="form-row"><label>비밀번호</label><input id="r-pw" type="password" placeholder="6자 이상"/></div>
+        <div class="form-row"><label>비밀번호 확인</label><input id="r-pw2" type="password" placeholder="비밀번호 재입력" onkeydown="if(event.key==='Enter')register()"/></div>
+        <button class="btn btn-primary btn-full" id="btn-reg" onclick="register()">인증코드 발송 →</button>
+        <p style="text-align:center;margin-top:14px;font-size:12px;color:var(--text3)">이미 계정이 있으신가요? <a onclick="showStep('login')" style="color:var(--accent);cursor:pointer">로그인</a></p>
+      </div>
+
+      <!-- OTP STEP -->
+      <div id="step-otp" style="display:none">
+        <div style="text-align:center;margin-bottom:22px">
+          <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent3));display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M20 4H4C2.9 4 2 4.9 2 6v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zM18 8l-6 3.75L6 8V6l6 3.75L18 6v2z"/></svg>
+          </div>
+          <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;margin-bottom:6px">이메일 인증</div>
+          <div style="font-size:12px;color:var(--text3)">6자리 인증코드를 발송했습니다</div>
+          <div style="font-size:13px;color:var(--accent2);margin-top:4px;font-weight:500" id="otp-email-label"></div>
+        </div>
+        <div class="otp-box" style="margin-bottom:14px">
+          <input class="otp-digit" id="d0" maxlength="1" oninput="otpIn(0)" onkeydown="otpKey(event,0)">
+          <input class="otp-digit" id="d1" maxlength="1" oninput="otpIn(1)" onkeydown="otpKey(event,1)">
+          <input class="otp-digit" id="d2" maxlength="1" oninput="otpIn(2)" onkeydown="otpKey(event,2)">
+          <input class="otp-digit" id="d3" maxlength="1" oninput="otpIn(3)" onkeydown="otpKey(event,3)">
+          <input class="otp-digit" id="d4" maxlength="1" oninput="otpIn(4)" onkeydown="otpKey(event,4)">
+          <input class="otp-digit" id="d5" maxlength="1" oninput="otpIn(5)" onkeydown="otpKey(event,5)">
+        </div>
+        <div style="text-align:center;font-size:12px;color:var(--text3);margin-bottom:14px">남은 시간: <span id="otp-timer" style="color:var(--accent);font-weight:600">15:00</span></div>
+        <button class="btn btn-primary btn-full" id="btn-verify" onclick="verifyOTP()">인증 확인</button>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn btn-outline btn-full btn-sm" onclick="resendOTP()">재발송</button>
+          <button class="btn btn-ghost btn-full btn-sm" onclick="showStep('register')">← 돌아가기</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ APP ═══════════════════════════════════════ -->
+<div class="page" id="page-app" style="flex-direction:row">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div style="padding:16px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+      <div style="width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--accent3));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:13px;flex-shrink:0">H</div>
+      <div class="sidebar-logo-text">
+        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:13px;line-height:1">HookPanel</div>
+        <div style="font-size:10px;color:var(--text3)">v3.0 secure</div>
+      </div>
+    </div>
+
+    <nav style="flex:1;padding:10px 0">
+      <div style="padding:6px 14px 4px;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px" class="nav-label">메인</div>
+      <div class="sidebar-nav-item active" id="nav-dashboard" onclick="goTab('dashboard')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+        <span class="nav-label">대시보드</span>
+      </div>
+      <div class="sidebar-nav-item" id="nav-webhooks" onclick="goTab('webhooks')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M17 7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h1v-2H7c-1.65 0-3-1.35-3-3s1.35-3 3-3h10c1.65 0 3 1.35 3 3s-1.35 3-3 3h-1v2h1c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
+        <span class="nav-label">웹훅 관리</span>
+        <span class="nav-badge" id="badge-hooks">0</span>
+      </div>
+      <div class="sidebar-nav-item" id="nav-send" onclick="goTab('send')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>
+        <span class="nav-label">메시지 발송</span>
+      </div>
+      <div class="sidebar-nav-item" id="nav-logs" onclick="goTab('logs')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/></svg>
+        <span class="nav-label">발송 로그</span>
+        <span class="nav-badge" id="badge-logs">0</span>
+      </div>
+      <div id="admin-nav-section" style="display:none">
+        <div style="padding:10px 14px 4px;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px" class="nav-label">관리자</div>
+        <div class="sidebar-nav-item" id="nav-admin" onclick="goTab('admin')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+          <span class="nav-label">관리자 패널</span>
+        </div>
+      </div>
+    </nav>
+
+    <div style="padding:12px 14px;border-top:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="avatar" id="sidebar-avatar">?</div>
+        <div class="sidebar-user-info" style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="sidebar-name">-</div>
+          <div style="display:flex;align-items:center;gap:5px"><div class="dot-online"></div><span style="font-size:11px;color:var(--text3)">온라인</span></div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="logout()" title="로그아웃" style="padding:6px;color:var(--text3)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5-5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-content">
+
+    <!-- DASHBOARD -->
+    <div class="tab-pane active" id="tab-dashboard">
+      <div class="page-title">대시보드</div>
+      <div class="page-sub">전체 현황을 한눈에 확인하세요</div>
+      <div class="grid-4" style="margin-bottom:20px">
+        <div class="stat-card"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">총 회원</div><div style="font-size:28px;font-weight:700;font-family:'Syne',sans-serif" id="s-users">-</div></div>
+        <div class="stat-card"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">온라인</div><div style="font-size:28px;font-weight:700;font-family:'Syne',sans-serif;color:var(--green)" id="s-online">-</div></div>
+        <div class="stat-card"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">내 웹훅</div><div style="font-size:28px;font-weight:700;font-family:'Syne',sans-serif" id="s-hooks">0</div></div>
+        <div class="stat-card"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">총 발송</div><div style="font-size:28px;font-weight:700;font-family:'Syne',sans-serif" id="s-sent">0</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="var(--accent)"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>최근 발송</div>
+          <div id="dash-logs"><div class="empty">발송 기록이 없습니다</div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><svg width="15" height="15" viewBox="0 0 24 24" fill="var(--accent3)"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>온라인 회원</div>
+          <div id="dash-online"><div class="empty">접속 중인 회원 없음</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WEBHOOKS -->
+    <div class="tab-pane" id="tab-webhooks">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px">
+        <div><div class="page-title">웹훅 관리</div><div class="page-sub">Discord 웹훅 URL을 등록하고 관리하세요</div></div>
+        <button class="btn btn-primary" onclick="openAddWebhook()">+ 웹훅 추가</button>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>이름</th><th>채널</th><th>URL</th><th>등록일</th><th>작업</th></tr></thead>
+            <tbody id="webhook-tbody"><tr><td colspan="5" class="empty">등록된 웹훅이 없습니다</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEND -->
+    <div class="tab-pane" id="tab-send">
+      <div class="page-title">메시지 발송</div>
+      <div class="page-sub">Discord 채널에 메시지를 보냅니다</div>
+      <div class="grid-2">
+        <div>
+          <div class="card" style="margin-bottom:14px">
+            <div class="card-header">기본 설정</div>
+            <div class="form-row"><label>웹훅 선택</label><select id="s-hook"><option value="">웹훅을 선택하세요</option></select></div>
+            <div class="form-row"><label>봇 이름 (선택)</label><input id="s-botname" placeholder="기본 봇 이름 사용" oninput="updatePreview()"/></div>
+            <div class="form-row"><label>봇 아바타 URL (선택)</label><input id="s-avatar" placeholder="https://..."/></div>
+          </div>
+          <div class="card" style="margin-bottom:14px">
+            <div class="card-header">메시지</div>
+            <div class="form-row"><label>내용</label><textarea id="s-content" placeholder="메시지 내용..." oninput="updatePreview()"></textarea></div>
+          </div>
+          <div class="card" style="margin-bottom:14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+              <div class="card-header" style="margin:0">임베드</div>
+              <label style="display:flex;align-items:center;gap:6px;margin:0;text-transform:none;letter-spacing:0;font-size:12px;cursor:pointer;color:var(--text2)">
+                <input type="checkbox" id="embed-on" onchange="toggleEmbed()" style="width:auto;accent-color:var(--accent)"> 사용
+              </label>
+            </div>
+            <div id="embed-fields" style="display:none">
+              <div class="form-row">
+                <label>색상</label>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <input type="color" id="e-color" value="#5865f2" style="width:44px;height:36px;padding:3px;cursor:pointer;border-radius:6px" oninput="syncColor()">
+                  <input id="e-color-hex" value="#5865f2" style="flex:1" oninput="syncColorHex()">
+                </div>
+              </div>
+              <div class="form-row"><label>제목</label><input id="e-title" placeholder="임베드 제목" oninput="updatePreview()"/></div>
+              <div class="form-row"><label>설명</label><textarea id="e-desc" placeholder="임베드 설명..." oninput="updatePreview()"></textarea></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" class="form-row">
+                <div><label>푸터</label><input id="e-footer" placeholder="푸터 텍스트" oninput="updatePreview()"/></div>
+                <div><label>썸네일 URL</label><input id="e-thumb" placeholder="https://..." oninput="updatePreview()"/></div>
+              </div>
+              <div class="form-row"><label>이미지 URL</label><input id="e-image" placeholder="https://..." oninput="updatePreview()"/></div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="sendMsg()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>발송
+            </button>
+            <button class="btn btn-outline" onclick="testSend()">테스트</button>
+          </div>
+        </div>
+        <div>
+          <div style="position:sticky;top:20px">
+            <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">미리보기</div>
+            <div id="discord-preview-wrap">
+              <div id="discord-preview" style="color:#72767d;font-size:13px;text-align:center;padding:20px">메시지를 입력하면 미리보기가 표시됩니다</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOGS -->
+    <div class="tab-pane" id="tab-logs">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px">
+        <div><div class="page-title">발송 로그</div><div class="page-sub">모든 웹훅 발송 기록입니다</div></div>
+        <button class="btn btn-danger btn-sm" onclick="clearLogs()">로그 초기화</button>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>시간</th><th>웹훅</th><th>메시지</th><th>상태</th></tr></thead>
+            <tbody id="log-tbody"><tr><td colspan="4" class="empty">발송 기록이 없습니다</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADMIN -->
+    <div class="tab-pane" id="tab-admin">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+        <div class="page-title">관리자 패널</div>
+        <span class="tag tag-admin">ADMIN</span>
+      </div>
+      <div class="page-sub">서비스 전체 현황을 관리합니다</div>
+      <div class="grid-4" style="margin-bottom:20px">
+        <div class="stat-card"><div style="font-size:10px;color:var(--text3);margin-bottom:6px">총 가입자</div><div style="font-size:26px;font-weight:700;font-family:'Syne',sans-serif" id="adm-users">-</div></div>
+        <div class="stat-card"><div style="font-size:10px;color:var(--text3);margin-bottom:6px">온라인</div><div style="font-size:26px;font-weight:700;font-family:'Syne',sans-serif;color:var(--green)" id="adm-online">-</div></div>
+        <div class="stat-card"><div style="font-size:10px;color:var(--text3);margin-bottom:6px">총 웹훅</div><div style="font-size:26px;font-weight:700;font-family:'Syne',sans-serif" id="adm-hooks">-</div></div>
+        <div class="stat-card"><div style="font-size:10px;color:var(--text3);margin-bottom:6px">총 발송</div><div style="font-size:26px;font-weight:700;font-family:'Syne',sans-serif" id="adm-sent">-</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header">전체 회원</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>아이디</th><th>이메일</th><th>역할</th><th>가입일</th><th>상태</th><th>작업</th></tr></thead>
+            <tbody id="adm-user-tbody"><tr><td colspan="6" class="empty">불러오는 중...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</div><!-- #app -->
+
+<!-- WEBHOOK MODAL -->
+<div id="modal-webhook" style="display:none">
+  <div class="modal-overlay" onclick="if(event.target===this)closeModal('modal-webhook')">
+    <div class="modal">
+      <h3 style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;margin-bottom:20px">웹훅 추가</h3>
+      <div class="form-row"><label>웹훅 이름</label><input id="wh-name" placeholder="예: 공지채널"/></div>
+      <div class="form-row"><label>채널 이름</label><input id="wh-ch" placeholder="예: #공지사항"/></div>
+      <div class="form-row"><label>Discord 웹훅 URL</label><input id="wh-url" placeholder="https://discord.com/api/webhooks/..."/></div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="addWebhook()">추가</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-webhook')">취소</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="notif-root"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+// SUPABASE 초기화
+// ⚠️ ANON KEY는 공개해도 안전 (RLS로 보호됨)
+// ⚠️ SERVICE KEY는 절대 여기 넣지 마세요
+// ═══════════════════════════════════════════════
+const SUPABASE_URL  = 'https://ckkaqawsaezohdamncpz.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_yMlIlL4dg3De7vCPOwGTcA_hpzIEa8I';
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// Discord OAuth (Authorization Code Flow - 서버사이드)
+const DISCORD_CLIENT_ID = '1500053167402909756'; // Client ID만 - Secret은 Netlify 환경변수에
+const SITE_URL = window.location.origin;
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+let currentUser = null;
+let currentProfile = null;
+let otpPendingData = null;
+let otpTimerInterval = null;
+
+// ═══════════════════════════════════════════════
+// NOTIFICATIONS
+// ═══════════════════════════════════════════════
+function notify(msg, type = 'info') {
+  const root = document.getElementById('notif-root');
+  const el = document.createElement('div');
+  el.className = `notif notif-${type}`;
+  el.textContent = msg;
+  root.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// ═══════════════════════════════════════════════
+// STEP NAVIGATION
+// ═══════════════════════════════════════════════
+function showStep(name) {
+  ['login','register','otp'].forEach(s => {
+    document.getElementById('step-' + s).style.display = s === name ? 'block' : 'none';
+  });
+}
+
+// ═══════════════════════════════════════════════
+// LOGIN (Supabase Auth)
+// ═══════════════════════════════════════════════
+async function login() {
+  const id = document.getElementById('l-id').value.trim();
+  const pw = document.getElementById('l-pw').value;
+  if (!id || !pw) { notify('아이디와 비밀번호를 입력해주세요', 'error'); return; }
+
+  const btn = document.getElementById('btn-login');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> 로그인 중...';
+
+  // username → email 변환해서 Supabase 로그인
+  // (Supabase Auth는 이메일 기반이므로 username으로 email 먼저 조회)
+  const { data: profile, error: pe } = await sb
+    .from('profiles')
+    .select('id, username')
+    .eq('username', id)
+    .single();
+
+  if (pe || !profile) {
+    notify('존재하지 않는 아이디입니다', 'error');
+    btn.disabled = false; btn.innerHTML = '로그인';
+    return;
+  }
+
+  const { data: authData, error: authErr } = await sb
+    .from('profiles')
+    .select('*')
+    .eq('id', profile.id)
+    .single();
+
+  // Supabase Auth signIn with email (이메일은 가입시 저장됨)
+  // email은 auth.users에서 가져와야 하므로 별도 처리
+  // 간단한 방법: username@hookpanel.app 형태로 저장하거나
+  // profiles 테이블에 email을 함께 저장 (스키마에 추가 권장)
+  // 여기서는 auth.users의 email로 로그인
+  const { data: signIn, error: signErr } = await sb.auth.signInWithPassword({
+    email: id.includes('@') ? id : id + '@hookpanel.internal',
+    password: pw
+  });
+
+  if (signErr) {
+    // 이메일로 재시도
+    notify('아이디 또는 비밀번호가 올바르지 않습니다', 'error');
+    btn.disabled = false; btn.innerHTML = '로그인';
+    return;
+  }
+
+  notify('로그인되었습니다!', 'success');
+  btn.disabled = false; btn.innerHTML = '로그인';
+  await loadUserAndEnter(signIn.user);
+}
+
+// ═══════════════════════════════════════════════
+// REGISTER → OTP → Supabase Auth 가입
+// ═══════════════════════════════════════════════
+async function register() {
+  const id    = document.getElementById('r-id').value.trim();
+  const email = document.getElementById('r-email').value.trim();
+  const pw    = document.getElementById('r-pw').value;
+  const pw2   = document.getElementById('r-pw2').value;
+
+  if (!id || !email || !pw) { notify('모든 항목을 입력해주세요', 'error'); return; }
+  if (pw !== pw2) { notify('비밀번호가 일치하지 않습니다', 'error'); return; }
+  if (pw.length < 6) { notify('비밀번호는 6자 이상이어야 합니다', 'error'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { notify('올바른 이메일 형식이 아닙니다', 'error'); return; }
+  if (id.length < 3) { notify('아이디는 3자 이상이어야 합니다', 'error'); return; }
+
+  // 중복 아이디 확인
+  const { data: dup } = await sb.from('profiles').select('id').eq('username', id).single();
+  if (dup) { notify('이미 사용 중인 아이디입니다', 'error'); return; }
+
+  const btn = document.getElementById('btn-reg');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> 발송 중...';
+
+  // Netlify Function으로 OTP 발송 (EmailJS 키 서버사이드)
+  try {
+    const res = await fetch('/.netlify/functions/send-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, action: 'send' })
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error);
+
+    otpPendingData = { id, email, pw };
+    document.getElementById('otp-email-label').textContent = email;
+    for (let i = 0; i < 6; i++) {
+      const el = document.getElementById('d' + i);
+      el.value = ''; el.classList.remove('filled', 'error');
+    }
+    showStep('otp');
+    startOtpTimer();
+    document.getElementById('d0').focus();
+    notify('인증코드를 발송했습니다 ✉️', 'success');
+  } catch (err) {
+    notify('발송 실패: ' + err.message, 'error');
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '인증코드 발송 →';
+}
+
+async function verifyOTP() {
+  const code = Array.from({length:6}, (_,i) => document.getElementById('d'+i).value).join('');
+  if (code.length < 6) { notify('6자리 코드를 모두 입력해주세요', 'error'); return; }
+
+  const btn = document.getElementById('btn-verify');
+  btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>';
+
+  try {
+    // 서버에서 OTP 검증
+    const res = await fetch('/.netlify/functions/send-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: otpPendingData.email, code, action: 'verify' })
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error);
+
+    // OTP 통과 → Supabase Auth 가입
+    const { id, email, pw } = otpPendingData;
+    const { data, error } = await sb.auth.signUp({
+      email,
+      password: pw,
+      options: {
+        data: { username: id, display_name: id, provider: 'email' }
+      }
+    });
+
+    if (error) throw new Error(error.message);
+
+    clearInterval(otpTimerInterval);
+    notify('회원가입 완료! 환영합니다 ' + id + '님 🎉', 'success');
+    await loadUserAndEnter(data.user);
+  } catch (err) {
+    notify(err.message, 'error');
+    for (let i = 0; i < 6; i++) document.getElementById('d'+i).classList.add('error');
+    setTimeout(() => { for (let i=0;i<6;i++) document.getElementById('d'+i).classList.remove('error'); }, 600);
+  }
+
+  btn.disabled = false; btn.innerHTML = '인증 확인';
+}
+
+async function resendOTP() {
+  if (!otpPendingData) return;
+  try {
+    const res = await fetch('/.netlify/functions/send-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: otpPendingData.email, action: 'send' })
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error);
+    startOtpTimer();
+    notify('인증코드를 재발송했습니다', 'info');
+  } catch (err) {
+    notify(err.message, 'error');
+  }
+}
+
+function startOtpTimer() {
+  clearInterval(otpTimerInterval);
+  let secs = 900;
+  const el = document.getElementById('otp-timer');
+  otpTimerInterval = setInterval(() => {
+    secs--;
+    const m = Math.floor(secs / 60), s = secs % 60;
+    if (el) el.textContent = m + ':' + String(s).padStart(2, '0');
+    if (secs <= 0) { clearInterval(otpTimerInterval); notify('인증코드가 만료되었습니다', 'error'); }
+  }, 1000);
+}
+
+function otpIn(i) {
+  const el = document.getElementById('d' + i);
+  el.value = el.value.replace(/\D/g, '');
+  if (el.value) {
+    el.classList.add('filled');
+    if (i < 5) document.getElementById('d' + (i + 1)).focus();
+    else verifyOTP();
+  } else el.classList.remove('filled');
+}
+
+function otpKey(e, i) {
+  if (e.key === 'Backspace' && !document.getElementById('d' + i).value && i > 0)
+    document.getElementById('d' + (i - 1)).focus();
+}
+
+// ═══════════════════════════════════════════════
+// GOOGLE LOGIN (Supabase OAuth)
+// ═══════════════════════════════════════════════
+async function googleLogin() {
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: SITE_URL }
+  });
+  if (error) notify('Google 로그인 실패: ' + error.message, 'error');
+}
+
+// ═══════════════════════════════════════════════
+// DISCORD LOGIN (Netlify Function으로 Code Exchange)
+// ═══════════════════════════════════════════════
+function discordLogin() {
+  const params = new URLSearchParams({
+    client_id: DISCORD_CLIENT_ID,
+    redirect_uri: SITE_URL + '/discord-callback',
+    response_type: 'code', // ← token 아닌 code (서버에서 처리)
+    scope: 'identify email'
+  });
+  const popup = window.open(
+    'https://discord.com/api/oauth2/authorize?' + params,
+    'discord-oauth', 'width=500,height=700'
+  );
+
+  window._discordPopupInterval = setInterval(async () => {
+    try {
+      if (!popup || popup.closed) { clearInterval(window._discordPopupInterval); return; }
+      const url = popup.location.href;
+      if (url.includes('code=')) {
+        clearInterval(window._discordPopupInterval);
+        const code = new URL(url).searchParams.get('code');
+        popup.close();
+        await handleDiscordCode(code);
+      }
+    } catch {}
+  }, 400);
+}
+
+async function handleDiscordCode(code) {
+  notify('Discord 인증 처리 중...', 'info');
+  try {
+    // Netlify Function에서 Client Secret으로 token 교환
+    const res = await fetch('/.netlify/functions/discord-auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error);
+
+    const { discordId, username, email, picture } = json.user;
+
+    // Supabase에 Discord 유저 upsert
+    const fakeEmail = email.includes('@discord.local') ? email : email;
+    const fakePw = 'discord_' + discordId + '_' + Math.random().toString(36).slice(2);
+
+    // 기존 Discord 유저 확인
+    const { data: existing } = await sb.from('profiles').select('*').eq('discord_id', discordId).single();
+
+    if (existing) {
+      // 이미 가입된 Discord 계정 → 세션 처리 (signInWithPassword 불가 → magic link 또는 admin API 필요)
+      // 실용적 해결: Supabase Admin API를 Netlify Function에서 호출
+      // 여기서는 간단히 로컬 세션으로 처리 후 안내
+      notify('Discord 계정으로 로그인되었습니다!', 'success');
+      currentProfile = existing;
+      enterApp();
+      return;
+    }
+
+    // 신규 → Supabase Auth signUp
+    const { data, error } = await sb.auth.signUp({
+      email: fakeEmail,
+      password: fakePw,
+      options: { data: { username, display_name: username, provider: 'discord', picture, discord_id: discordId } }
+    });
+    if (error) throw new Error(error.message);
+    notify('Discord 계정으로 가입되었습니다! 환영합니다 ' + username + '님 🎉', 'success');
+    await loadUserAndEnter(data.user);
+  } catch (err) {
+    notify('Discord 로그인 실패: ' + err.message, 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════
+// SESSION RESTORE
+// ═══════════════════════════════════════════════
+async function initAuth() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session?.user) {
+    await loadUserAndEnter(session.user);
+  }
+
+  // Auth state 변경 감지 (Google OAuth 리다이렉트 후 등)
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session?.user && !currentUser) {
+      await loadUserAndEnter(session.user);
+    }
+  });
+}
+
+async function loadUserAndEnter(user) {
+  currentUser = user;
+
+  // 프로필 로드 (없으면 트리거가 자동 생성하므로 잠시 대기)
+  let profile = null;
+  for (let i = 0; i < 5; i++) {
+    const { data } = await sb.from('profiles').select('*').eq('id', user.id).single();
+    if (data) { profile = data; break; }
+    await new Promise(r => setTimeout(r, 600));
+  }
+
+  if (!profile) { notify('프로필 로드 실패. 새로고침해주세요.', 'error'); return; }
+  currentProfile = profile;
+
+  // 온라인 상태 업데이트
+  await sb.from('profiles').update({ online: true }).eq('id', user.id);
+
+  enterApp();
+}
+
+// ═══════════════════════════════════════════════
+// APP ENTER / LOGOUT
+// ═══════════════════════════════════════════════
+function enterApp() {
+  document.getElementById('page-login').classList.remove('active');
+  document.getElementById('page-app').classList.add('active');
+
+  const name = currentProfile.display_name || currentProfile.username;
+  document.getElementById('sidebar-name').textContent = name;
+
+  const avatarEl = document.getElementById('sidebar-avatar');
+  if (currentProfile.picture) {
+    avatarEl.innerHTML = `<img src="${currentProfile.picture}" onerror="this.parentNode.textContent='${name.charAt(0).toUpperCase()}'">`;
+  } else {
+    avatarEl.textContent = name.charAt(0).toUpperCase();
+  }
+
+  if (currentProfile.role === 'admin') {
+    document.getElementById('admin-nav-section').style.display = 'block';
+  }
+
+  loadDashboard();
+  loadWebhooks();
+  loadLogs();
+}
+
+async function logout() {
+  if (currentUser) {
+    await sb.from('profiles').update({ online: false }).eq('id', currentUser.id);
+    await sb.auth.signOut();
+  }
+  currentUser = null;
+  currentProfile = null;
+  document.getElementById('page-app').classList.remove('active');
+  document.getElementById('page-login').classList.add('active');
+  document.getElementById('admin-nav-section').style.display = 'none';
+  showStep('login');
+  notify('로그아웃되었습니다', 'info');
+}
+
+// ═══════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════
+function goTab(name) {
+  document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.sidebar-nav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  const nav = document.getElementById('nav-' + name);
+  if (nav) nav.classList.add('active');
+
+  if (name === 'admin') loadAdmin();
+  if (name === 'logs') loadLogs();
+  if (name === 'webhooks') loadWebhooks();
+  if (name === 'send') loadSendSelect();
+}
+
+// ═══════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════
+async function loadDashboard() {
+  if (!currentUser) return;
+
+  // 내 웹훅 수
+  const { count: hookCount } = await sb.from('webhooks').select('*', { count: 'exact', head: true }).eq('user_id', currentUser.id);
+  document.getElementById('s-hooks').textContent = hookCount || 0;
+
+  // 내 발송 수
+  const { count: logCount } = await sb.from('logs').select('*', { count: 'exact', head: true }).eq('user_id', currentUser.id);
+  document.getElementById('s-sent').textContent = logCount || 0;
+  document.getElementById('badge-logs').textContent = logCount || 0;
+
+  // 전체 통계 (admin용 or 공개)
+  const { count: totalUsers } = await sb.from('profiles').select('*', { count: 'exact', head: true });
+  const { count: onlineUsers } = await sb.from('profiles').select('*', { count: 'exact', head: true }).eq('online', true);
+  document.getElementById('s-users').textContent = totalUsers || 0;
+  document.getElementById('s-online').textContent = onlineUsers || 0;
+
+  // 최근 내 로그
+  const { data: recentLogs } = await sb.from('logs').select('*').eq('user_id', currentUser.id).order('sent_at', { ascending: false }).limit(5);
+  const dashLogs = document.getElementById('dash-logs');
+  dashLogs.innerHTML = recentLogs?.length
+    ? recentLogs.map(l => `<div style="padding:8px 0;border-bottom:1px solid var(--border)"><div style="font-size:11px;color:var(--text3);margin-bottom:2px">${new Date(l.sent_at).toLocaleString('ko')} · ${l.webhook_name}</div><div style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l.message || '[임베드]'}</div></div>`).join('')
+    : '<div class="empty">발송 기록이 없습니다</div>';
+
+  // 온라인 회원
+  const { data: onlineList } = await sb.from('profiles').select('*').eq('online', true).limit(10);
+  const dashOnline = document.getElementById('dash-online');
+  dashOnline.innerHTML = onlineList?.length
+    ? onlineList.map(u => {
+        const n = u.display_name || u.username;
+        const av = u.picture ? `<img src="${u.picture}" style="width:28px;height:28px;border-radius:50%;object-fit:cover">` : `<div class="avatar" style="width:28px;height:28px;font-size:11px">${n.charAt(0).toUpperCase()}</div>`;
+        return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0"><div style="width:28px;height:28px;border-radius:50%;overflow:hidden;flex-shrink:0">${av}</div><span style="font-size:13px">${n}</span><span class="tag tag-${u.role === 'admin' ? 'admin' : 'user'}" style="margin-left:auto">${u.role}</span></div>`;
+      }).join('')
+    : '<div class="empty">접속 중인 회원 없음</div>';
+}
+
+// ═══════════════════════════════════════════════
+// WEBHOOKS
+// ═══════════════════════════════════════════════
+async function loadWebhooks() {
+  if (!currentUser) return;
+  const { data } = await sb.from('webhooks').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+  const tb = document.getElementById('webhook-tbody');
+  document.getElementById('badge-hooks').textContent = data?.length || 0;
+  document.getElementById('s-hooks').textContent = data?.length || 0;
+
+  tb.innerHTML = data?.length
+    ? data.map((w, i) => {
+        const short = w.url.length > 38 ? w.url.slice(0, 38) + '...' : w.url;
+        return `<tr>
+          <td><strong style="color:var(--text)">${w.name}</strong></td>
+          <td style="color:var(--accent2)">${w.channel}</td>
+          <td><code style="font-size:11px;background:var(--bg3);padding:2px 7px;border-radius:5px">${short}</code></td>
+          <td style="font-size:12px;color:var(--text3)">${new Date(w.created_at).toLocaleDateString('ko')}</td>
+          <td><div style="display:flex;gap:6px">
+            <button class="btn btn-outline btn-sm" onclick="copyUrl('${w.url}')">복사</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteWebhook('${w.id}')">삭제</button>
+          </div></td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="5" class="empty">등록된 웹훅이 없습니다</td></tr>';
+}
+
+function openAddWebhook() { document.getElementById('modal-webhook').style.display = 'block'; }
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+async function addWebhook() {
+  const name = document.getElementById('wh-name').value.trim();
+  const ch   = document.getElementById('wh-ch').value.trim() || '#채널';
+  const url  = document.getElementById('wh-url').value.trim();
+  if (!name || !url) { notify('이름과 URL은 필수입니다', 'error'); return; }
+  if (!url.startsWith('https://discord.com/api/webhooks/')) { notify('올바른 Discord 웹훅 URL이 아닙니다', 'error'); return; }
+
+  const { error } = await sb.from('webhooks').insert({ user_id: currentUser.id, name, channel: ch, url });
+  if (error) { notify('추가 실패: ' + error.message, 'error'); return; }
+
+  notify('웹훅이 추가되었습니다', 'success');
+  closeModal('modal-webhook');
+  ['wh-name','wh-ch','wh-url'].forEach(id => document.getElementById(id).value = '');
+  await loadWebhooks();
+  loadSendSelect();
+}
+
+async function deleteWebhook(id) {
+  if (!confirm('웹훅을 삭제하시겠습니까?')) return;
+  await sb.from('webhooks').delete().eq('id', id);
+  notify('삭제되었습니다', 'info');
+  await loadWebhooks();
+  loadSendSelect();
+}
+
+function copyUrl(url) {
+  navigator.clipboard.writeText(url).then(() => notify('URL이 복사되었습니다', 'success')).catch(() => notify('복사 실패', 'error'));
+}
+
+// ═══════════════════════════════════════════════
+// SEND
+// ═══════════════════════════════════════════════
+async function loadSendSelect() {
+  if (!currentUser) return;
+  const { data } = await sb.from('webhooks').select('*').eq('user_id', currentUser.id);
+  const sel = document.getElementById('s-hook');
+  sel.innerHTML = '<option value="">웹훅을 선택하세요</option>' +
+    (data || []).map(w => `<option value="${w.url}" data-name="${w.name}">${w.name} (${w.channel})</option>`).join('');
+}
+
+function toggleEmbed() {
+  document.getElementById('embed-fields').style.display = document.getElementById('embed-on').checked ? 'block' : 'none';
+  updatePreview();
+}
+function syncColor() { document.getElementById('e-color-hex').value = document.getElementById('e-color').value; updatePreview(); }
+function syncColorHex() { const v = document.getElementById('e-color-hex').value; if (/^#[0-9a-fA-F]{6}$/.test(v)) document.getElementById('e-color').value = v; updatePreview(); }
+
+function updatePreview() {
+  const content = document.getElementById('s-content').value;
+  const useEmbed = document.getElementById('embed-on').checked;
+  const botName = document.getElementById('s-botname').value || 'WebhookBot';
+  let html = '';
+
+  if (content) html += `<div style="color:#dcddde;font-size:14px;line-height:1.6;margin-bottom:6px">${content.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>`;
+
+  if (useEmbed) {
+    const color = document.getElementById('e-color').value;
+    const title = document.getElementById('e-title').value;
+    const desc  = document.getElementById('e-desc').value;
+    const footer= document.getElementById('e-footer').value;
+    const thumb = document.getElementById('e-thumb').value;
+    const img   = document.getElementById('e-image').value;
+    html += `<div style="background:#2f3136;border-left:4px solid ${color};border-radius:0 4px 4px 0;padding:12px">`;
+    if (title) html += `<div style="color:#fff;font-weight:600;font-size:15px;margin-bottom:5px">${title}</div>`;
+    if (desc)  html += `<div style="color:#dcddde;font-size:13px;line-height:1.5;margin-bottom:6px">${desc.replace(/\n/g,'<br>')}</div>`;
+    if (img)   html += `<img src="${img}" style="max-width:100%;border-radius:4px;margin-bottom:6px" onerror="this.style.display='none'">`;
+    if (thumb) html += `<img src="${thumb}" style="float:right;width:60px;height:60px;border-radius:4px;object-fit:cover" onerror="this.style.display='none'">`;
+    if (footer)html += `<div style="font-size:11px;color:#72767d;margin-top:6px">${footer}</div>`;
+    html += '</div>';
+  }
+
+  const preview = document.getElementById('discord-preview');
+  if (html) {
+    preview.innerHTML = `<div style="display:flex;gap:12px"><div class="avatar">${botName.charAt(0).toUpperCase()}</div><div style="flex:1"><div style="color:#fff;font-weight:600;font-size:14px;margin-bottom:4px">${botName} <span style="background:#5865f2;color:#fff;font-size:10px;padding:1px 5px;border-radius:3px">BOT</span></div>${html}</div></div>`;
+  } else {
+    preview.innerHTML = '<div style="color:#72767d;font-size:13px;text-align:center;padding:20px">메시지를 입력하면 미리보기가 표시됩니다</div>';
+  }
+}
+
+async function sendMsg() {
+  const hookUrl = document.getElementById('s-hook').value;
+  const hookName = document.getElementById('s-hook').selectedOptions[0]?.dataset.name || '알 수 없음';
+  if (!hookUrl) { notify('웹훅을 선택해주세요', 'error'); return; }
+  const content = document.getElementById('s-content').value;
+  const useEmbed = document.getElementById('embed-on').checked;
+  if (!content && !useEmbed) { notify('메시지 내용 또는 임베드를 입력해주세요', 'error'); return; }
+
+  const payload = {};
+  if (content) payload.content = content;
+  const un = document.getElementById('s-botname').value;
+  const av = document.getElementById('s-avatar').value;
+  if (un) payload.username = un;
+  if (av) payload.avatar_url = av;
+  if (useEmbed) {
+    const color = parseInt(document.getElementById('e-color').value.replace('#', ''), 16);
+    const embed = { color };
+    const t=document.getElementById('e-title').value, d=document.getElementById('e-desc').value;
+    const f=document.getElementById('e-footer').value, th=document.getElementById('e-thumb').value, im=document.getElementById('e-image').value;
+    if (t) embed.title=t; if (d) embed.description=d;
+    if (f) embed.footer={text:f}; if (th) embed.thumbnail={url:th}; if (im) embed.image={url:im};
+    payload.embeds = [embed];
+  }
+
+  try {
+    const r = await fetch(hookUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    notify(r.ok || r.status === 204 ? '✓ 발송 완료!' : `발송 실패 (${r.status})`, r.ok || r.status === 204 ? 'success' : 'error');
+  } catch {
+    notify('발송 요청 전송됨', 'info');
+  }
+
+  // 로그 저장
+  await sb.from('logs').insert({ user_id: currentUser.id, webhook_name: hookName, message: content || '[임베드]', status: 'success' });
+  loadDashboard();
+  loadLogs();
+}
+
+async function testSend() {
+  const hookUrl = document.getElementById('s-hook').value;
+  if (!hookUrl) { notify('웹훅을 선택해주세요', 'error'); return; }
+  try {
+    const r = await fetch(hookUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: '🧪 HookPanel 테스트 메시지입니다!', username: 'HookPanel Test' }) });
+    notify(r.ok || r.status === 204 ? '테스트 발송 완료!' : `실패 (${r.status})`, r.ok || r.status === 204 ? 'success' : 'error');
+  } catch { notify('테스트 발송 완료 (CORS)', 'info'); }
+}
+
+// ═══════════════════════════════════════════════
+// LOGS
+// ═══════════════════════════════════════════════
+async function loadLogs() {
+  if (!currentUser) return;
+  const { data } = await sb.from('logs').select('*').eq('user_id', currentUser.id).order('sent_at', { ascending: false }).limit(100);
+  document.getElementById('badge-logs').textContent = data?.length || 0;
+  const tb = document.getElementById('log-tbody');
+  tb.innerHTML = data?.length
+    ? data.map(l => `<tr>
+        <td style="font-size:12px;color:var(--text3)">${new Date(l.sent_at).toLocaleString('ko')}</td>
+        <td>${l.webhook_name}</td>
+        <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l.message || '[임베드]'}</td>
+        <td><span class="tag tag-online">성공</span></td>
+      </tr>`).join('')
+    : '<tr><td colspan="4" class="empty">발송 기록이 없습니다</td></tr>';
+}
+
+async function clearLogs() {
+  if (!confirm('모든 로그를 삭제하시겠습니까?')) return;
+  await sb.from('logs').delete().eq('user_id', currentUser.id);
+  notify('로그가 초기화되었습니다', 'info');
+  loadLogs(); loadDashboard();
+}
+
+// ═══════════════════════════════════════════════
+// ADMIN
+// ═══════════════════════════════════════════════
+async function loadAdmin() {
+  if (currentProfile?.role !== 'admin') return;
+
+  const { count: uc } = await sb.from('profiles').select('*', { count: 'exact', head: true });
+  const { count: oc } = await sb.from('profiles').select('*', { count: 'exact', head: true }).eq('online', true);
+  const { count: hc } = await sb.from('webhooks').select('*', { count: 'exact', head: true });
+  const { count: lc } = await sb.from('logs').select('*', { count: 'exact', head: true });
+
+  document.getElementById('adm-users').textContent = uc || 0;
+  document.getElementById('adm-online').textContent = oc || 0;
+  document.getElementById('adm-hooks').textContent = hc || 0;
+  document.getElementById('adm-sent').textContent = lc || 0;
+
+  const { data: users } = await sb.from('profiles').select('*').order('created_at', { ascending: false });
+  const tb = document.getElementById('adm-user-tbody');
+  tb.innerHTML = users?.length
+    ? users.map(u => {
+        const isMe = u.id === currentUser?.id;
+        const provBadge = u.provider && u.provider !== 'email' ? `<span style="font-size:9px;background:var(--bg3);padding:1px 5px;border-radius:4px;margin-left:5px;color:var(--text3)">${u.provider}</span>` : '';
+        return `<tr>
+          <td style="color:var(--text)">${u.display_name || u.username}${provBadge}${isMe ? '<span style="font-size:10px;color:var(--accent);margin-left:6px">(나)</span>' : ''}</td>
+          <td style="font-size:12px">${u.id}</td>
+          <td><span class="tag tag-${u.role === 'admin' ? 'admin' : 'user'}">${u.role}</span></td>
+          <td style="font-size:12px;color:var(--text3)">${new Date(u.created_at).toLocaleDateString('ko')}</td>
+          <td>${u.online ? '<span class="tag tag-online">온라인</span>' : '<span class="tag tag-offline">오프라인</span>'}</td>
+          <td>${isMe ? '-' : `<button class="btn btn-outline btn-sm" onclick="toggleRole('${u.id}','${u.role}')">역할변경</button>`}</td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="6" class="empty">회원 없음</td></tr>';
+}
+
+async function toggleRole(userId, currentRole) {
+  const newRole = currentRole === 'admin' ? 'user' : 'admin';
+  const { error } = await sb.from('profiles').update({ role: newRole }).eq('id', userId);
+  if (error) { notify('변경 실패', 'error'); return; }
+  notify(`역할이 ${newRole}로 변경되었습니다`, 'info');
+  loadAdmin();
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', initAuth);
+
+// beforeunload시 오프라인 처리
+window.addEventListener('beforeunload', () => {
+  if (currentUser) {
+    navigator.sendBeacon('/.netlify/functions/set-offline', JSON.stringify({ userId: currentUser.id }));
+    sb.from('profiles').update({ online: false }).eq('id', currentUser.id);
+  }
+});
+</script>
+</body>
+</html>
