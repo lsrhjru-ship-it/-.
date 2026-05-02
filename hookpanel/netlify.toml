@@ -1,0 +1,29 @@
+[build]
+  functions = "netlify/functions"
+  publish = "."
+
+# SPA 라우팅 - 모든 경로를 index.html로
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Discord OAuth callback 페이지 (별도 처리 없이 index.html이 처리)
+[[redirects]]
+  from = "/discord-callback"
+  to = "/index.html"
+  status = 200
+
+# =============================================
+# Netlify 대시보드 → Site Settings → Environment Variables 에서 설정:
+# =============================================
+# SUPABASE_URL          = https://xxxx.supabase.co
+# SUPABASE_ANON_KEY     = eyJhbGci...  (anon/public key - 공개용)
+# SUPABASE_SERVICE_KEY  = eyJhbGci...  (service_role key - 절대 프론트엔드 노출 금지)
+# EMAILJS_SERVICE_ID    = service_xxx
+# EMAILJS_TEMPLATE_ID   = template_xxx
+# EMAILJS_PUBLIC_KEY    = 9WZwQ_...
+# DISCORD_CLIENT_ID     = 1500053...
+# DISCORD_CLIENT_SECRET = xxxx        (Discord Developer Portal에서 확인)
+# SITE_URL              = https://hookforwarding.netlify.app
+# =============================================
